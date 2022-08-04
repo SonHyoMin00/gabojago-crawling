@@ -3,7 +3,8 @@ import urllib
 from urllib.request import Request, urlopen
 from HM.dataset.db_connection import get_db_connection
 
-def get_location(loc):
+
+def get_location(loc, idx):
     client_id = '아이디'
     client_secret = '비번'
     url = f"https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=" \
@@ -27,26 +28,28 @@ def get_location(loc):
             lat = response_body['addresses'][0]['y']
             lon = response_body['addresses'][0]['x']
             #print(lon, lat)
-            return (lon, lat)
+            val = [lat, lon]
+            val.append(idx)
+            print(f'start: {val}')
+            cursor.execute(insert_spot_xy, tuple(val))
         else:
+            val = [idx]
             print('location not exist')
+            cursor.execute(insert_spot_xy_null, tuple(val))
 
     else:
         print('ERROR')
+        val = [idx]
+        cursor.execute(insert_spot_xy_null, tuple(val))
 
 
 get_count_spot = 'SELECT count(spot_id) FROM spot'
-# spot_x, spot_y 속성을 추가하기 위한 쿼리문 # alter은 자동 커밋됨
-alter_spot_x = 'ALTER TABLE spot ADD COLUMN spot_x float'
-alter_spot_y = 'ALTER TABLE spot ADD COLUMN spot_y float'
+
 # 주소를 조회하기 위한 쿼리문
 get_spot_id = 'SELECT spot_id, address FROM spot WHERE spot_id=%s'
 # spot에 데이터 삽입을 위한 쿼리문
-insert_spot_xy = 'INSERT INTO spot(spot_x, spot_y) VALUES(%s, %s)'
-# 속성 타입을 바꾸기 위한 쿼리문
-float_spot_x = 'ALTER TABLE spot MODIFY spot_x float DEFAULT null'
-float_spot_y = 'ALTER TABLE spot MODIFY spot_y float DEFAULT null'
-
+insert_spot_xy = 'UPDATE spot SET spot_x=%s, spot_y=%s where spot_id=%s'
+insert_spot_xy_null = 'UPDATE spot SET spot_x=null, spot_y=null where spot_id=%s'
 
 db, cursor = get_db_connection()
 #cursor.execute(alter_spot_x)
@@ -68,11 +71,12 @@ for idx in range(1, db_count[0][0]+1):
     print(f'spot_address: {spot_address}, spot_id: {spot_id}')
 
     #  함수 적용
-    spot_xy = get_location(spot_address)
-    print(f'start: {spot_xy}')
-    #cursor.execute(insert_spot_xy, spot_xy)
+    try:
+        get_location(spot_address, idx)
+    except:
+        pass
+
 
 #db.commit()
 db.close()
-
 
